@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="dot" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="2.5" fill="#222"/></marker>
+  </defs>
+  <style>
+    .box{fill:#f7f7f5;stroke:#333;stroke-width:2;rx:10}
+    .title{font-size:20px;font-weight:700;fill:#222}
+    .sub{font-size:13px;fill:#666}
+    .pin{font-size:13px;fill:#222}
+    .port{fill:#fff;stroke:#333;stroke-width:1.5;rx:4}
+    .portlbl{font-size:12px;font-weight:700;fill:#333}
+    .w{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+    .red{stroke:#d33}.blk{stroke:#222}.yel{stroke:#e0a800}.grn{stroke:#2a9d4a}.blu{stroke:#2f6fd6}.gry{stroke:#999;stroke-dasharray:8 6}
+    .note{font-size:13px;fill:#444}
+    .warn{font-size:13px;fill:#b00;font-weight:700}
+    .cab{font-size:12px;fill:#2f6fd6;font-style:italic}
+  </style>
+  <rect width="1400" height="900" fill="#ffffff"/>
+  <text x="40" y="45" class="title" font-size="26">Knob stand — wiring</text>
+  <text x="40" y="70" class="sub">v3 — all connectors hang from the device's underside through the open ring into the tray. Outside: USB-C charge window (back) and power switch (left wall).</text>
+
+  <!-- ===== Elecrow device ===== -->
+  <rect x="480" y="110" width="440" height="190" class="box"/>
+  <text x="500" y="140" class="title">Elecrow 1.28" rotary display</text>
+  <text x="500" y="160" class="sub">all ports are on the underside; the knurled body turns, the base plate with the ports does not</text>
+  <!-- MX1.25 5V port -->
+  <rect x="540" y="230" width="150" height="50" class="port"/>
+  <text x="548" y="248" class="portlbl">5V port — MX1.25 4-pin</text>
+  <text x="548" y="268" class="pin">5V · GND · (2 unused)</text>
+  <!-- Dupont header -->
+  <rect x="710" y="230" width="150" height="50" class="port"/>
+  <text x="718" y="248" class="portlbl">I2C / UART port — 4-pin</text>
+  <text x="718" y="268" class="pin">5V · GND · SDA (GPIO 38) · SCL</text>
+  <!-- USB-C -->
+  <text x="760" y="200" class="note" font-size="12">No USB-C on the device: to flash it, unplug Cable A</text>
+  <text x="760" y="216" class="note" font-size="12">and use the included MX1.25-to-USB cable in the 5V port.</text>
+
+  <!-- ===== Charger ===== -->
+  <rect x="80" y="420" width="400" height="230" class="box"/>
+  <text x="100" y="450" class="title">bq25185 charger + 5 V boost</text>
+  <text x="100" y="470" class="sub">Adafruit 6106 — back-left bay</text>
+  <rect x="100" y="500" width="130" height="44" class="port"/>
+  <text x="108" y="518" class="portlbl">USB-C IN</text>
+  <text x="108" y="536" class="pin">→ window in back wall</text>
+  <rect x="100" y="585" width="130" height="44" class="port"/>
+  <text x="108" y="603" class="portlbl">BATT — JST-PH 2-pin</text>
+  <text x="108" y="621" class="pin">+ / −</text>
+  <rect x="330" y="500" width="130" height="44" class="port"/>
+  <text x="338" y="518" class="portlbl">5V OUT — terminal block</text>
+  <text x="338" y="536" class="pin">5V  ·  GND</text>
+  <rect x="330" y="585" width="130" height="44" class="port"/>
+  <text x="338" y="603" class="portlbl">EN pad</text>
+  <text x="338" y="621" class="pin">to switch (see below)</text>
+
+  <!-- ===== Battery ===== -->
+  <rect x="80" y="720" width="400" height="110" class="box"/>
+  <text x="100" y="750" class="title">LiPo 3.7 V 2000 mAh</text>
+  <text x="100" y="770" class="sub">Adafruit 2011 — front-left bay, lies flat</text>
+  <rect x="100" y="785" width="150" height="32" class="port"/>
+  <text x="108" y="806" class="portlbl">JST-PH 2-pin (attached)</text>
+
+  <!-- ===== Amp ===== -->
+  <rect x="860" y="420" width="400" height="230" class="box"/>
+  <text x="880" y="450" class="title">PAM8904 piezo amp</text>
+  <text x="880" y="470" class="sub">Adafruit 5791 — right-hand strip</text>
+  <rect x="880" y="500" width="190" height="60" class="port"/>
+  <text x="888" y="518" class="portlbl">IN — JST-PH 3-pin</text>
+  <text x="888" y="536" class="pin">5V → Vin · GND → GND</text>
+  <text x="888" y="552" class="pin">GPIO A → Signal</text>
+  <rect x="1085" y="500" width="155" height="60" class="port"/>
+  <text x="1093" y="518" class="portlbl">OUT — terminal block</text>
+  <text x="1093" y="536" class="pin">2 wires to piezo</text>
+  <text x="1093" y="552" class="pin">(polarity doesn't matter)</text>
+  <rect x="880" y="590" width="360" height="40" class="port"/>
+  <text x="888" y="614" class="pin"><tspan font-weight="700">DIP gain switches:</tspan> ×2 only  (Vin is 5 V here; ×3 is only allowed at 3.3 V)</text>
+
+  <!-- ===== Piezo ===== -->
+  <rect x="860" y="720" width="400" height="110" class="box"/>
+  <text x="880" y="750" class="title">Piezo disc 30 mm</text>
+  <text x="880" y="770" class="sub">Adafruit 1739 — back-right bay, glued over the floor slots</text>
+  <rect x="880" y="785" width="150" height="32" class="port"/>
+  <text x="888" y="806" class="portlbl">2 bare wires (attached)</text>
+
+  <!-- ===== WIRES ===== -->
+  <!-- Battery -> BATT -->
+  <path d="M165 785 L165 629" class="w red"/>
+  <path d="M185 785 L185 629" class="w blk"/>
+  <text x="200" y="712" class="cab">plug straight in</text>
+
+  <!-- 5V OUT -> device 5V port -->
+  <path d="M380 500 L380 360 L590 360 L590 280" class="w red"/>
+  <path d="M410 500 L410 380 L620 380 L620 280" class="w blk"/>
+  <text x="60" y="330" class="cab">Cable A — Adafruit 4924 1.25 mm 4-pin pigtail</text>
+  <text x="60" y="348" class="note">use red + black only, trim the other two;</text>
+  <text x="60" y="364" class="note">bare ends screwed into the 5V OUT terminal block</text>
+
+  <!-- header -> amp IN -->
+  <path d="M740 280 L740 360 L910 360 L910 500" class="w red"/>
+  <path d="M770 280 L770 380 L940 380 L940 500" class="w blk"/>
+  <path d="M800 280 L800 400 L970 400 L970 500" class="w yel"/>
+  <text x="1000" y="330" class="cab">Cable B — 3893 (JST-PH 3-pin) wires twisted onto</text>
+  <text x="1000" y="348" class="cab">the other half of the cut 4924 pigtail, taped</text>
+  <text x="1000" y="366" class="note" font-size="12">(or 1951 jumpers if you keep the header pins)</text>
+
+  <!-- amp OUT -> piezo -->
+  <path d="M1140 560 L1140 785" class="w blu"/>
+  <path d="M1170 560 L1170 785" class="w blu"/>
+  <text x="1185" y="700" class="cab">piezo's own wires → screw terminals</text>
+
+  <!-- USB charging from outside -->
+  <path d="M100 522 L30 522" class="w gry"/>
+  <text x="8" y="500" class="note" font-size="12">USB-C charge</text>
+  <text x="20" y="560" class="note" font-size="11">from outside,</text>
+  <text x="20" y="574" class="note" font-size="11">back wall</text>
+
+  <!-- optional switch -->
+  <path d="M395 629 L395 668" class="w yel"/>
+  <path d="M445 684 L470 684 L470 560 L445 560 L445 544" class="w blk"/>
+  <rect x="370" y="668" width="75" height="36" fill="#fff" stroke="#333" stroke-width="1.5" rx="4"/>
+  <text x="376" y="683" class="portlbl" font-size="11">SW 805 (power)</text>
+  <text x="376" y="697" class="pin" font-size="10">centre + one outer pin</text>
+
+  <!-- Legend / notes -->
+  <rect x="520" y="690" width="320" height="185" fill="#fffbe6" stroke="#e0c060" stroke-width="1.5" rx="8"/>
+  <text x="535" y="715" class="pin" font-weight="700">Rules</text>
+  <text x="535" y="738" class="note">• Red = 5 V, black = GND, yellow = beep signal</text>
+  <text x="535" y="758" class="note">• Flashing: unplug Cable A, plug the MX1.25-to-USB</text>
+  <text x="535" y="774" class="warn">   cable into the 5V port instead. Never both.</text>
+  <text x="535" y="796" class="note">• Check 5V / GND pin order on the Elecrow silkscreen</text>
+  <text x="535" y="812" class="note">   before plugging in Cable A — MX1.25 pinouts vary.</text>
+  <text x="535" y="830" class="note">• GPIO A = SDA, GPIO 38. Do not start I2C in firmware.</text>
+  <text x="535" y="850" class="note">• Switch: EN ↔ GND. Closed = 5 V off (battery still</text>
+  <text x="535" y="866" class="note">   charges), open = on. Actuator through left-wall slot.</text>
+</svg>

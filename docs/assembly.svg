@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000" font-family="Helvetica, Arial, sans-serif">
+  <style>
+    .card{fill:#f7f7f5;stroke:#333;stroke-width:2;rx:12}
+    .num{font-size:30px;font-weight:700;fill:#fff}
+    .h{font-size:19px;font-weight:700;fill:#222}
+    .t{font-size:13.5px;fill:#333}
+    .s{font-size:12px;fill:#666}
+    .warn{font-size:13px;fill:#b00;font-weight:700}
+    .ok{font-size:13px;fill:#1a7f3c;font-weight:700}
+    .part{fill:#fff;stroke:#333;stroke-width:1.5;rx:5}
+    .pl{font-size:12px;font-weight:700;fill:#333}
+    .pin{font-size:11px;fill:#333}
+    .w{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+    .red{stroke:#d33}.blk{stroke:#222}.yel{stroke:#e0a800}.blu{stroke:#2f6fd6}.grn{stroke:#2a9d4a}
+    .code{font-family:Menlo,Consolas,monospace;font-size:11.5px;fill:#222}
+  </style>
+  <rect width="1400" height="1000" fill="#fff"/>
+  <text x="40" y="44" class="h" font-size="26">Bench assembly — no case, no soldering</text>
+  <text x="40" y="68" class="s">Do the steps in order. Nothing is powered until step 2, and the device is the last thing to get power. Keep the battery unplugged while you screw wires into terminal blocks.</text>
+
+  <!-- ========== STEP 1 ========== -->
+  <rect x="40" y="95" width="420" height="270" class="card"/>
+  <circle cx="70" cy="125" r="20" fill="#2f6fd6"/><text x="62" y="135" class="num">1</text>
+  <text x="100" y="131" class="h">Charger ← Cable A (screw)</text>
+  <rect x="60" y="155" width="200" height="90" class="part"/>
+  <text x="68" y="240" class="pl">bq25185 (6106)</text>
+  <rect x="70" y="165" width="90" height="26" class="part"/><text x="76" y="182" class="pin">5V OUT [5V][GND]</text>
+  <rect x="170" y="165" width="85" height="26" class="part"/><text x="177" y="182" class="pin">BATT (JST-PH)</text>
+  <rect x="70" y="197" width="60" height="20" class="part"/><text x="76" y="211" class="pin">USB-C</text>
+  <!-- pigtail -->
+  <path d="M90 165 L90 148 L300 148" class="w red"/>
+  <path d="M112 165 L112 156 L300 156" class="w blk"/>
+  <rect x="300" y="137" width="60" height="30" class="part"/><text x="306" y="156" class="pin">MX1.25 plug</text>
+  <text x="290" y="190" class="s">Adafruit 4924 pigtail</text>
+  <text x="60" y="270" class="t">• Strip 5 mm off the red and black leads of one 4924.</text>
+  <text x="60" y="290" class="t">• Red → 5V screw, black → GND screw. Tug-test.</text>
+  <text x="60" y="310" class="t">• Fold the 2 unused leads back and tape them.</text>
+  <text x="60" y="335" class="warn">Before step 3: confirm which MX1.25 pins are 5V/GND on the</text>
+  <text x="60" y="352" class="warn">Elecrow (silkscreen or meter its USB cable). Rewire if needed.</text>
+
+  <!-- ========== STEP 2 ========== -->
+  <rect x="490" y="95" width="420" height="270" class="card"/>
+  <circle cx="520" cy="125" r="20" fill="#2f6fd6"/><text x="512" y="135" class="num">2</text>
+  <text x="550" y="131" class="h">Battery → charger (plug)</text>
+  <rect x="510" y="155" width="200" height="90" class="part"/>
+  <text x="518" y="173" class="pl">bq25185 (6106)</text>
+  <rect x="615" y="185" width="85" height="26" class="part"/><text x="622" y="202" class="pin">BATT (JST-PH)</text>
+  <rect x="520" y="217" width="60" height="20" class="part"/><text x="526" y="231" class="pin">USB-C</text>
+  <rect x="740" y="160" width="150" height="80" class="part"/>
+  <text x="748" y="180" class="pl">LiPo 2000 mAh (2011)</text>
+  <path d="M740 198 L700 198" class="w red"/><path d="M740 210 L700 210" class="w blk"/>
+  <text x="748" y="225" class="s">JST-PH, keyed — only fits one way</text>
+  <text x="510" y="270" class="t">• Plug the battery in. Green LED = 5 V boost is live.</text>
+  <text x="510" y="290" class="t">• Plug any USB-C cable into the charger: orange LED = charging.</text>
+  <text x="510" y="310" class="t">• Meter check (optional): 5V OUT screws read ≈ 5.0 V.</text>
+  <text x="510" y="340" class="ok">Nothing else connected yet — the MX1.25 plug is dangling, that's fine.</text>
+
+  <!-- ========== STEP 3 ========== -->
+  <rect x="940" y="95" width="420" height="270" class="card"/>
+  <circle cx="970" cy="125" r="20" fill="#2f6fd6"/><text x="962" y="135" class="num">3</text>
+  <text x="1000" y="131" class="h">Device ← Cable A (plug)</text>
+  <rect x="960" y="155" width="190" height="95" class="part"/>
+  <text x="968" y="243" class="pl">Elecrow — underside</text>
+  <rect x="970" y="165" width="80" height="26" class="part"/><text x="976" y="182" class="pin">5V port</text>
+  <rect x="1060" y="165" width="80" height="26" class="part"/><text x="1066" y="182" class="pin">I2C port</text>
+  <rect x="970" y="197" width="80" height="26" class="part"/><text x="976" y="214" class="pin">UART port</text>
+  <path d="M1010 165 L1010 150 L1200 150" class="w red"/>
+  <rect x="1200" y="137" width="60" height="30" class="part"/><text x="1206" y="156" class="pin">MX1.25 plug</text>
+  <text x="1200" y="190" class="s">from step 1</text>
+  <text x="960" y="275" class="t">• Plug Cable A into the 5V port. The screen should boot.</text>
+  <text x="960" y="295" class="t">• No boot → unplug immediately, re-check pin order.</text>
+  <text x="960" y="325" class="warn">To flash firmware: unplug Cable A, use the MX1.25-to-USB</text>
+  <text x="960" y="342" class="warn">cable in the same port. Never both at once.</text>
+
+  <!-- ========== STEP 4 ========== -->
+  <rect x="40" y="395" width="420" height="270" class="card"/>
+  <circle cx="70" cy="425" r="20" fill="#2f6fd6"/><text x="62" y="435" class="num">4</text>
+  <text x="100" y="431" class="h">Amp ← piezo (screw) + gain</text>
+  <rect x="60" y="455" width="210" height="95" class="part"/>
+  <text x="68" y="473" class="pl">PAM8904 amp (5791)</text>
+  <rect x="70" y="485" width="90" height="26" class="part"/><text x="76" y="502" class="pin">IN  JST-PH 3-pin</text>
+  <rect x="170" y="485" width="90" height="26" class="part"/><text x="176" y="502" class="pin">OUT [ + ][ − ]</text>
+  <rect x="70" y="517" width="120" height="24" class="part"/><text x="76" y="533" class="pin">DIP: ×2 ON only</text>
+  <path d="M200 485 L200 465 L320 465" class="w blu"/><path d="M225 485 L225 475 L320 475" class="w blu"/>
+  <circle cx="345" cy="470" r="24" fill="#fff" stroke="#333" stroke-width="1.5"/><text x="332" y="474" class="pin">piezo</text>
+  <text x="60" y="580" class="t">• Piezo wires into OUT screws, either way round.</text>
+  <text x="60" y="600" class="t">• Set gain to ×2 only. Vin will be 5 V, and ×3 is</text>
+  <text x="60" y="618" class="t">   only allowed at 3.3 V.</text>
+  <text x="60" y="645" class="s">The loose header strip in the bag is not needed — leave it unsoldered.</text>
+
+  <!-- ========== STEP 5 ========== -->
+  <rect x="490" y="395" width="420" height="270" class="card"/>
+  <circle cx="520" cy="425" r="20" fill="#2f6fd6"/><text x="512" y="435" class="num">5</text>
+  <text x="550" y="431" class="h">Device → amp (Cable B)</text>
+  <rect x="510" y="455" width="80" height="26" class="part"/><text x="516" y="472" class="pin">I2C port</text>
+  <text x="510" y="500" class="s">other half of the cut 4924</text>
+  <path d="M590 462 L660 462" class="w red"/><path d="M590 468 L660 468" class="w blk"/><path d="M590 474 L660 474" class="w yel"/>
+  <rect x="660" y="450" width="60" height="32" class="part"/><text x="664" y="470" class="pin">Dupont</text>
+  <text x="740" y="500" class="s">twist + tape (or 1951 jumpers)</text>
+  <path d="M720 462 L790 462" class="w red"/><path d="M720 468 L790 468" class="w blk"/><path d="M720 474 L790 474" class="w yel"/>
+  <rect x="790" y="450" width="55" height="32" class="part"/><text x="794" y="470" class="pin">3893 hdr</text>
+  <path d="M845 466 L880 466" class="w grn"/>
+  <rect x="860" y="450" width="40" height="32" class="part"/><text x="862" y="470" class="pin">amp IN</text>
+  <text x="510" y="535" class="t">• Read the I2C port silkscreen; wire pin-for-pin:</text>
+  <text x="530" y="556" class="t"><tspan fill="#d33" font-weight="700">5V</tspan> → Vin (red)   <tspan font-weight="700">GND</tspan> → GND (black)   <tspan fill="#c9a000" font-weight="700">SDA</tspan> → Signal (yellow)</text>
+  <text x="510" y="580" class="t">• 4th wire (SCL) stays unused. Tape its end.</text>
+  <text x="510" y="605" class="t">• Plug 3893's JST end into the amp IN port.</text>
+  <text x="510" y="635" class="s">Join each wire by position to the labels on the I2C port, not by colour:</text>
+  <text x="510" y="650" class="s">on the reference unit 5V was white and GND was yellow.</text>
+
+  <!-- ========== STEP 6 ========== -->
+  <rect x="940" y="395" width="420" height="270" class="card"/>
+  <circle cx="970" cy="425" r="20" fill="#2f6fd6"/><text x="962" y="435" class="num">6</text>
+  <text x="1000" y="431" class="h">Test beep (Arduino IDE)</text>
+  <rect x="960" y="450" width="380" height="150" fill="#f0f0ee" stroke="#ccc" rx="6"/>
+  <text x="972" y="472" class="code">// SDA of the I2C port = GPIO 38 (Elecrow pinout)</text>
+  <text x="972" y="490" class="code">const int BEEP = 38;   // do not Wire.begin() on 38/39</text>
+  <text x="972" y="508" class="code">void setup() { ledcAttach(BEEP, 2700, 8); }</text>
+  <text x="972" y="526" class="code">void loop() {</text>
+  <text x="972" y="544" class="code">  ledcWrite(BEEP, 128); delay(120);  // on</text>
+  <text x="972" y="562" class="code">  ledcWrite(BEEP, 0);   delay(880);  // off</text>
+  <text x="972" y="580" class="code">}</text>
+  <text x="960" y="625" class="t">• Flash with Cable A unplugged, then swap cables back.</text>
+  <text x="960" y="645" class="t">• 2.7 kHz is near the piezo's resonance → loudest.</text>
+
+  <!-- ========== Optional switch ========== -->
+  <rect x="40" y="695" width="1320" height="120" fill="#fffbe6" stroke="#e0c060" stroke-width="1.5" rx="10"/>
+  <text x="60" y="722" class="h" font-size="16">Optional, later — power switch (the only soldering in the project)</text>
+  <text x="60" y="748" class="t">The bq25185's EN is a bare pad, so the 805 slide switch needs two wires soldered: EN pad ↔ switch centre pin, switch outer pin ↔ any GND pad.</text>
+  <text x="60" y="768" class="t">Closed = 5 V off (battery still charges over USB-C); open = on. Skip it for the bench test — unplugging the battery is your switch for now.</text>
+  <text x="60" y="796" class="s">No-solder alternative if you ever want it: an inline JST-PH 2-pin switch cable between the battery and BATT (e.g. Adafruit 3064 "JST-PH 2-pin switch").</text>
+
+  <!-- footer -->
+  <text x="40" y="860" class="h" font-size="16">Order of power-up each time</text>
+  <text x="40" y="885" class="t">battery → charger (green LED)  ⟶  Cable A → device (boots)  ⟶  Cable B already in place (amp takes 5 V from the device, so it follows automatically)</text>
+  <text x="40" y="915" class="s">Everything here is plug or screw-terminal. The only tools: a small flat screwdriver and wire strippers.</text>
+</svg>

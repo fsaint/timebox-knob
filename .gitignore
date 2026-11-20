@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+enclosure/src/*.stl
+enclosure/src/*.3mf
+enclosure/src/*.png
+templates/*.png
+
+# local only: Arduino build output, vendor CAD and factory firmware backup, tool state
+build/
+backup/
+cad/
+.superpowers/
+.DS_Store
