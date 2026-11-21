@@ -11,3 +11,6 @@ backup/
 cad/
 .superpowers/
 .DS_Store
+
+# Wi-Fi credentials and alert token
+firmware/pomodoro/secrets.h

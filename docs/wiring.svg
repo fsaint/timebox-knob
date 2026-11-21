@@ -66,7 +66,7 @@
   <rect x="880" y="500" width="190" height="60" class="port"/>
   <text x="888" y="518" class="portlbl">IN — JST-PH 3-pin</text>
   <text x="888" y="536" class="pin">5V → Vin · GND → GND</text>
-  <text x="888" y="552" class="pin">GPIO A → Signal</text>
+  <text x="888" y="552" class="pin">SDA (GPIO 38) → Signal</text>
   <rect x="1085" y="500" width="155" height="60" class="port"/>
   <text x="1093" y="518" class="portlbl">OUT — terminal block</text>
   <text x="1093" y="536" class="pin">2 wires to piezo</text>
@@ -128,7 +128,7 @@
   <text x="535" y="774" class="warn">   cable into the 5V port instead. Never both.</text>
   <text x="535" y="796" class="note">• Check 5V / GND pin order on the Elecrow silkscreen</text>
   <text x="535" y="812" class="note">   before plugging in Cable A — MX1.25 pinouts vary.</text>
-  <text x="535" y="830" class="note">• GPIO A = SDA, GPIO 38. Do not start I2C in firmware.</text>
+  <text x="535" y="830" class="note">• Signal = SDA, GPIO 38. Do not start I2C in firmware.</text>
   <text x="535" y="850" class="note">• Switch: EN ↔ GND. Closed = 5 V off (battery still</text>
   <text x="535" y="866" class="note">   charges), open = on. Actuator through left-wall slot.</text>
 </svg>

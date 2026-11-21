@@ -8,6 +8,9 @@
 //
 // Sound (piezo amp on GPIO 38): short beeps on the last 5 seconds, a long beep at 0, a short beep on reset.
 // Low power: after 2 minutes idle or paused the screen and lights go off; press or turn the knob to wake.
+// Settings: tap the gear at the top of the screen, or swipe down. Wi-Fi on/off and connection status.
+// Alerts (needs secrets.h): an agent sends a label over Wi-Fi; the screen flashes it and beeps until
+//                    the knob is pressed. See net.h and README.md.
 //
 // PROTOTYPE: no tests, no persistence.
 
@@ -17,6 +20,24 @@
 #include "types.h"
 #include <esp_sleep.h>
 #include <driver/gpio.h>
+#include <Wire.h>
+
+// Wi-Fi alert service: built in only when a secrets.h exists (copy secrets.example.h).
+#if __has_include("secrets.h")
+#include "secrets.h"
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <Preferences.h>
+#include <ArduinoJson.h>
+#include <time.h>
+#define HAVE_WIFI 1
+#else
+#define HAVE_WIFI 0
+#endif
+bool wifiOn = false;    // Wi-Fi radio wanted (settings screen); always false in the offline build
+bool netUp = false;     // Wi-Fi connected and the web server started
+bool screenOff = false; // standby with the processor awake (Wi-Fi builds)
 
 // ---------------------------------------------------------------- pins (from Elecrow factory source)
 #define PIN_LCD_PWR1 1
@@ -28,6 +49,11 @@
 #define PIN_ENC_A 45
 #define PIN_ENC_B 42
 #define PIN_ENC_SW 41
+// Touch panel (CST816D) on its own I2C bus. This is NOT the 38/39 port the buzzer uses.
+#define PIN_TP_SDA 6
+#define PIN_TP_SCL 7
+#define PIN_TP_RST 13
+#define TP_ADDR 0x15
 // Piezo amplifier input. GPIO38 is also SDA of the board's main I2C port (SCL is GPIO39),
 // so never start I2C on 38/39 (no Wire.begin(38, 39)): the two uses would fight over the pin.
 #define PIN_BUZZER 38
@@ -155,6 +181,8 @@ int focusDone = 0;  // completed focus sessions in the current set of 4
 const uint32_t CELEBRATE_MS = 6000;
 const uint32_t SLEEP_AFTER_MS = 2 * 60000;  // idle or paused this long without knob input: low power
 uint32_t lastActivity = 0;                  // last knob input or session change
+// Compare idle time as a signed value: lastActivity can be set later in the same loop() pass than `now`
+// was read, and an unsigned difference would wrap around to a huge idle time.
 const int COUNTDOWN_SECS = 5;  // short beep on each of the last seconds
 int lastBeepSec = 0;           // last second of the countdown that has beeped
 
@@ -186,6 +214,59 @@ void leaveDone() {
   if (mode == LONG_BREAK) focusDone = 0;
   enterIdle(n);
 }
+
+// ---------------------------------------------------------------- alerts
+// One alert is shown at a time; more wait in a small queue. Pressing the knob stops the current one.
+const int ALERT_QUEUE = 8;
+Alert curAlert, alertQueue[ALERT_QUEUE];
+int alertQueued = 0;
+bool alertActive = false;
+uint32_t alertSince = 0;
+int alertBeepSlot = -1;
+
+void startAlert(const Alert &a) {
+  curAlert = a;
+  alertActive = true;
+  alertSince = millis();
+  alertBeepSlot = -1;
+  lastActivity = alertSince;
+}
+
+bool showAlert(const Alert &a) {
+  if (!alertActive) { startAlert(a); return true; }
+  if (alertQueued >= ALERT_QUEUE) return false;
+  alertQueue[alertQueued++] = a;
+  return true;
+}
+
+void dismissAlert() {
+  Serial.printf("[pomo] alert stopped: %s\n", curAlert.label);
+  lastActivity = millis();
+  if (alertQueued > 0) {
+    Alert next = alertQueue[0];
+    for (int i = 1; i < alertQueued; i++) alertQueue[i - 1] = alertQueue[i];
+    alertQueued--;
+    startAlert(next);
+  } else {
+    alertActive = false;
+  }
+}
+
+// two short beeps every 1.5 s while an alert is showing
+void alertBeeps(uint32_t now) {
+  if (!alertActive || !curAlert.beep) return;
+  uint32_t e = now - alertSince;
+  int slot = (e / 1500) * 2 + ((e % 1500) >= 250 ? 1 : 0);
+  if (slot != alertBeepSlot) { alertBeepSlot = slot; beep(); }
+}
+
+// 1 while the alert flash is bright, 0.25 while dim (about 1.7 flashes per second)
+float alertPulse(uint32_t now) { return ((now - alertSince) % 600) < 300 ? 1.0f : 0.25f; }
+
+// ---------------------------------------------------------------- settings state
+bool settingsOpen = false;
+int settingsSel = 0;  // 0 = Wi-Fi row, 1 = Back row
+const uint32_t SETTINGS_CLOSE_MS = 15000;
 
 // ---------------------------------------------------------------- visuals state
 float level = 0.0f;  // displayed fill 0..1 (eased toward target)
@@ -320,16 +401,86 @@ void drawText(float t) {
     fb.drawString(hint, CX, 192);
   }
 
+  // settings gear at the top while idle or paused (tap it, or swipe down)
+  if (state == IDLE || state == PAUSED) {
+    uint16_t gc = c565(150, 158, 180);
+    for (int k = 0; k < 8; k++) fb.fillCircle(CX + (int)roundf(9 * cosf(k * 0.7854f)), 22 + (int)roundf(9 * sinf(k * 0.7854f)), 2, gc);
+    fb.fillCircle(CX, 22, 7, gc);
+    fb.fillCircle(CX, 22, 3, c565(16, 20, 32));
+  }
+
+#if HAVE_WIFI
+  // network address while idle, so you know where to send alerts
+  if (state == IDLE) {
+    fb.setFont(&fonts::Font0);
+    fb.setTextColor(c565(150, 158, 180));
+    fb.drawString(netUp ? WiFi.localIP().toString().c_str() : "wifi...", CX, 212);
+  }
+#endif
+
   // hold-to-reset progress ring
   if (holdProg > 0.02f) {
     fb.drawArc(CX, CY, 119, 113, 270, 270 + (int)(360 * holdProg), TFT_WHITE);
   }
 }
 
+// Greedy word wrap with the current font. Returns the number of lines, or -1 if it does not fit.
+int wrapLabel(const char *text, int maxW, int maxLines, char lines[][64]) {
+  int n = 0;
+  lines[0][0] = 0;
+  char word[64];
+  const char *p = text;
+  while (*p) {
+    while (*p == ' ') p++;
+    int w = 0;
+    while (*p && *p != ' ' && w < 63) word[w++] = *p++;
+    word[w] = 0;
+    if (!w) break;
+    char trial[130];
+    snprintf(trial, sizeof trial, lines[n][0] ? "%s %s" : "%s%s", lines[n], word);
+    if (strlen(trial) < 64 && fb.textWidth(trial) <= maxW) { strcpy(lines[n], trial); continue; }
+    if (!lines[n][0] || n + 1 >= maxLines) return -1;  // one word too wide, or out of lines
+    strcpy(lines[++n], word);
+    if (fb.textWidth(word) > maxW) return -1;
+  }
+  return n + 1;
+}
+
+// Full-screen alert: the whole screen flashes in the alert colour with the label in the middle.
+void drawAlert(uint32_t now) {
+  float p = alertPulse(now);
+  float r = curAlert.r * p, g = curAlert.g * p, b = curAlert.b * p;
+  fb.fillScreen(c565(r, g, b));
+  bool dark = (0.3f * r + 0.59f * g + 0.11f * b) > 150;  // bright background: dark text
+  uint16_t ink = dark ? c565(10, 10, 14) : TFT_WHITE;
+
+  static const lgfx::IFont *FONTS[] = {&fonts::FreeSansBold18pt7b, &fonts::FreeSansBold12pt7b, &fonts::FreeSansBold9pt7b};
+  static const int MAX_LINES[] = {3, 4, 5};
+  static char lines[5][64];
+  int n = -1;
+  fb.setTextSize(1.0f);
+  fb.setTextDatum(textdatum_t::middle_center);
+  for (int f = 0; f < 3 && n < 0; f++) {
+    fb.setFont(FONTS[f]);
+    n = wrapLabel(curAlert.label, 188, MAX_LINES[f], lines);
+  }
+  if (n < 0) { strlcpy(lines[0], curAlert.label, 20); n = 1; }  // hopeless: one clipped line, smallest font
+  int lh = fb.fontHeight() + 2;
+  int y0 = 112 - (n - 1) * lh / 2;
+  fb.setTextColor(ink);
+  for (int i = 0; i < n; i++) fb.drawString(lines[i], CX, y0 + i * lh);
+
+  fb.setFont(&fonts::Font2);
+  fb.drawString("press to stop", CX, 214);
+}
+
 // ---------------------------------------------------------------- LED ring
 void updateLeds(float t) {
   RGBf c = curTop;
-  if (state == DONE) {
+  if (alertActive) {
+    float p = alertPulse(millis());
+    for (int i = 0; i < NUM_RGB; i++) rgb.setPixelColor(i, rgb.Color(curAlert.r * p, curAlert.g * p, curAlert.b * p));
+  } else if (state == DONE) {
     float e = millis() - doneAt;
     float p = e < CELEBRATE_MS ? 0.5f + 0.5f * sinf(t * 9.0f) : 0.35f + 0.25f * sinf(t * 2.0f);
     for (int i = 0; i < NUM_RGB; i++) rgb.setPixelColor(i, rgb.Color(c.r * p, c.g * p, c.b * p));
@@ -351,6 +502,8 @@ uint32_t btnSince = 0, lastBtnChange = 0;
 uint32_t ignoreTurnsUntil = 0;  // knob turns are discarded until then (the turn that woke us)
 
 void onClick() {
+  if (alertActive) { dismissAlert(); return; }  // a press only stops the alert
+  if (settingsOpen) { settingsPress(); return; }
   slosh = 0.6f;
   switch (state) {
     case IDLE: state = RUNNING; lastTick = millis(); Serial.println("[pomo] start"); break;
@@ -361,6 +514,8 @@ void onClick() {
 }
 
 void onHold() {
+  if (alertActive) { dismissAlert(); return; }
+  if (settingsOpen) { settingsOpen = false; return; }
   slosh = 1.0f;
   beep();
   if (state == IDLE) {  // already reset: skip to the next session type
@@ -392,7 +547,8 @@ void pollInput() {
 
   int32_t d = takeDetents();
   if (d != 0) lastActivity = now;
-  if ((int32_t)(now - ignoreTurnsUntil) < 0) d = 0;
+  if ((int32_t)(now - ignoreTurnsUntil) < 0 || alertActive) d = 0;
+  if (d != 0 && settingsOpen) { settingsSel = constrain(settingsSel + (d > 0 ? 1 : -1), 0, 1); d = 0; }
   if (d != 0 && state != DONE) {
     slosh = min(1.0f, slosh + 0.25f * abs(d));
     if (state == IDLE) {
@@ -406,21 +562,211 @@ void pollInput() {
   }
 }
 
+#if HAVE_WIFI
+#include "net.h"
+#endif
+
+// ---------------------------------------------------------------- touch
+// Minimal CST816D reader: one finger, polled from loop(). Taps and vertical swipes are detected here
+// rather than with the chip's gesture register, which differs between CST816 variants.
+bool touchSwallow = false;  // ignore the touch in progress until the finger lifts
+
+void touchWake() {
+  pinMode(PIN_TP_RST, OUTPUT);
+  digitalWrite(PIN_TP_RST, LOW);
+  delay(10);
+  digitalWrite(PIN_TP_RST, HIGH);
+  delay(50);
+  Wire.beginTransmission(TP_ADDR);  // keep the chip awake so polling always gets an answer
+  Wire.write(0xFE);
+  Wire.write(0x01);
+  Wire.endTransmission();
+}
+
+void touchSleep() {
+  Wire.beginTransmission(TP_ADDR);
+  Wire.write(0xE5);
+  Wire.write(0x03);
+  Wire.endTransmission();
+}
+
+void touchSetup() {
+  Wire.begin(PIN_TP_SDA, PIN_TP_SCL, 400000);
+  touchWake();
+}
+
+bool touchRead(int &x, int &y) {
+  Wire.beginTransmission(TP_ADDR);
+  Wire.write(0x02);
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom(TP_ADDR, 5) != 5) return false;
+  uint8_t n = Wire.read(), xh = Wire.read(), xl = Wire.read(), yh = Wire.read(), yl = Wire.read();
+  if (n == 0) return false;
+  x = ((xh & 0x0F) << 8) | xl;
+  y = ((yh & 0x0F) << 8) | yl;
+  return true;
+}
+
+void openSettings() {
+  settingsOpen = true;
+  settingsSel = 0;
+  lastActivity = millis();
+}
+
+void settingsPress() {
+  lastActivity = millis();
+  if (settingsSel == 1) { settingsOpen = false; return; }
+#if HAVE_WIFI
+  setWifi(!wifiOn);
+#endif
+}
+
+void onTap(int x, int y) {
+  Serial.printf("[touch] tap %d,%d\n", x, y);
+  if (alertActive) return;  // alerts are stopped with the knob only
+  if (settingsOpen) {
+    if (y >= 60 && y < 98) { settingsSel = 0; settingsPress(); }
+    else if (y >= 178 && y < 214) settingsOpen = false;
+    return;
+  }
+  if ((state == IDLE || state == PAUSED) && y < 50 && abs(x - CX) < 45) openSettings();  // the gear
+}
+
+void onSwipe(bool down, int startY) {
+  Serial.printf("[touch] swipe %s from y=%d\n", down ? "down" : "up", startY);
+  if (alertActive) return;
+  if (settingsOpen) { if (!down) settingsOpen = false; return; }
+  if (down && startY < 110 && state != DONE) openSettings();
+}
+
+void pollTouch(uint32_t now) {
+  static bool down = false;
+  static int x0, y0, x1, y1, misses = 0;
+  int x, y;
+  if (touchRead(x, y)) {
+    misses = 0;
+    if (!down) { down = true; x0 = x; y0 = y; }
+    x1 = x; y1 = y;
+    lastActivity = now;
+  } else if (down && ++misses >= 2) {  // finger lifted
+    down = false;
+    if (touchSwallow) { touchSwallow = false; return; }
+    int dx = x1 - x0, dy = y1 - y0;
+    if (abs(dx) < 20 && abs(dy) < 20) onTap(x1, y1);
+    else if (abs(dy) > abs(dx) && abs(dy) > 35) onSwipe(dy > 0, y0);
+  } else if (!down) {
+    touchSwallow = false;
+  }
+}
+
+// ---------------------------------------------------------------- settings screen
+// Opened with the gear or a swipe down. Turn = move, press = act, hold or swipe up = close.
+void settingsRow(int y, int w, const char *text, bool selected) {
+  if (selected) fb.fillRoundRect(CX - w / 2, y - 16, w, 32, 12, c565(60, 110, 235));
+  else fb.drawRoundRect(CX - w / 2, y - 16, w, 32, 12, c565(70, 80, 105));
+  fb.setFont(&fonts::FreeSansBold9pt7b);
+  fb.setTextColor(TFT_WHITE);
+  fb.drawString(text, CX, y);
+}
+
+void drawSettings() {
+  fb.fillScreen(c565(10, 12, 20));
+  fb.setTextSize(1.0f);
+  fb.setTextDatum(textdatum_t::middle_center);
+  fb.setFont(&fonts::FreeSansBold9pt7b);
+  fb.setTextColor(c565(150, 158, 180));
+  fb.drawString("SETTINGS", CX, 40);
+
+  char l1[40] = "", l2[40] = "", l3[40] = "";
+#if HAVE_WIFI
+  settingsRow(79, 150, wifiOn ? "Wi-Fi: On" : "Wi-Fi: Off", settingsSel == 0);
+  if (!wifiOn) {
+    snprintf(l1, sizeof l1, "Radio off");
+    snprintf(l2, sizeof l2, "No alerts over Wi-Fi");
+  } else if (WiFi.status() == WL_CONNECTED) {
+    snprintf(l1, sizeof l1, "Connected: %.24s", WiFi.SSID().c_str());
+    snprintf(l2, sizeof l2, "%s  %d dBm", WiFi.localIP().toString().c_str(), (int)WiFi.RSSI());
+  } else {
+    snprintf(l1, sizeof l1, "Connecting...");
+    snprintf(l2, sizeof l2, "%.30s", WIFI_SSID);
+  }
+  time_t tt = time(nullptr);
+  if (tt > 1700000000) {
+    struct tm tmv;
+    localtime_r(&tt, &tmv);
+    strftime(l3, sizeof l3, "Clock %H:%M", &tmv);
+  } else {
+    snprintf(l3, sizeof l3, "Clock not synced");
+  }
+#else
+  settingsRow(79, 190, "Wi-Fi: not set up", settingsSel == 0);
+  snprintf(l1, sizeof l1, "Add secrets.h and reflash");
+  snprintf(l2, sizeof l2, "to enable Wi-Fi alerts");
+#endif
+  fb.setFont(&fonts::Font2);
+  fb.setTextColor(c565(205, 212, 230));
+  fb.drawString(l1, CX, 114);
+  fb.drawString(l2, CX, 132);
+  fb.drawString(l3, CX, 150);
+
+  settingsRow(196, 96, "Back", settingsSel == 1);
+}
+
 // ---------------------------------------------------------------- low power
-// Screen, backlight and LED ring off, then light sleep until the knob is pressed or turned.
+// Standby: screen, backlight and LED ring off until the knob is pressed or turned (or an alert arrives).
 // The press or turn that wakes the timer is swallowed: it never starts a session or changes the minutes.
-// Note: the USB serial port disappears while asleep, so wake it with the knob before flashing.
-void lowPowerSleep() {
-  Serial.println("[pomo] sleep");
-  Serial.flush();
+//  - Wi-Fi off (or offline build): the processor goes into light sleep. The USB serial port disappears
+//    while asleep, so wake it with the knob before flashing. It wakes itself for a scheduled alert.
+//  - Wi-Fi on: the processor stays awake so alerts can still arrive; only the screen and lights sleep.
+void displayOff() {
   rgb.clear();
   rgb.show();
   ledcWrite(PIN_BACKLIGHT, 0);
   ledcWrite(PIN_BUZZER, 0);
   beepOn = false;
   lcd.sleep();
+  screenOff = true;
+}
 
-  // wake on button down, or on either encoder line leaving its current level
+void displayOn() {
+  uint32_t now = millis();
+  lastActivity = now;
+  ignoreTurnsUntil = now + 400;
+  takeDetents();
+  if (digitalRead(PIN_ENC_SW) == LOW) {  // woken by a press: its release is not a click, its hold not a reset
+    btnDown = true;
+    holdFired = true;
+    lastBtnChange = now;
+  }
+  lcd.wakeup();
+  settingsOpen = false;
+  touchSwallow = true;  // a touch that woke the screen does nothing else
+  if (alertActive) drawAlert(now);
+  else { drawLiquid(now / 1000.0f); drawText(now / 1000.0f); }
+  fb.pushSprite(0, 0);
+  ledcWrite(PIN_BACKLIGHT, 200);  // backlight last, once the frame is on the panel
+  screenOff = false;
+  Serial.println("[pomo] wake");
+}
+
+void standby() {
+  Serial.println("[pomo] standby");
+  Serial.flush();
+  displayOff();
+  if (wifiOn) return;  // stay awake for alerts; loop() idles with the screen off
+
+  // light sleep; wake on button down, or on either encoder line leaving its current level
+  touchSleep();
+#if HAVE_WIFI
+  // also wake in time for the next scheduled alert
+  int64_t next = nextSchedAt();
+  if (next && clockSynced()) {
+    int64_t secs = next - (int64_t)time(nullptr);
+    esp_sleep_enable_timer_wakeup((uint64_t)(secs < 1 ? 1 : secs) * 1000000ULL);
+  } else {
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+  }
+#endif
   detachInterrupt(digitalPinToInterrupt(PIN_ENC_A));
   detachInterrupt(digitalPinToInterrupt(PIN_ENC_B));
   gpio_wakeup_enable((gpio_num_t)PIN_ENC_SW, GPIO_INTR_LOW_LEVEL);
@@ -429,7 +775,6 @@ void lowPowerSleep() {
   esp_sleep_enable_gpio_wakeup();
   esp_light_sleep_start();
 
-  // ---- awake again
   gpio_wakeup_disable((gpio_num_t)PIN_ENC_SW);
   gpio_wakeup_disable((gpio_num_t)PIN_ENC_A);
   gpio_wakeup_disable((gpio_num_t)PIN_ENC_B);
@@ -442,23 +787,8 @@ void lowPowerSleep() {
   encQuarter += encTable[(encLast << 2) | s];
   encLast = s;
   portEXIT_CRITICAL(&encMux);
-
-  uint32_t now = millis();
-  lastActivity = now;
-  ignoreTurnsUntil = now + 400;
-  if (digitalRead(PIN_ENC_SW) == LOW) {  // woken by a press: its release is not a click, its hold not a reset
-    btnDown = true;
-    holdFired = true;
-    lastBtnChange = now;
-  }
-
-  lcd.wakeup();
-  float t = now / 1000.0f;
-  drawLiquid(t);
-  drawText(t);
-  fb.pushSprite(0, 0);
-  ledcWrite(PIN_BACKLIGHT, 200);  // backlight last, once the frame is on the panel
-  Serial.println("[pomo] wake");
+  touchWake();
+  displayOn();
 }
 
 // ---------------------------------------------------------------- main
@@ -498,6 +828,11 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), encoderISR, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), encoderISR, CHANGE);
 
+  touchSetup();
+#if HAVE_WIFI
+  netSetup();
+#endif
+
   for (auto &b : bubbles) spawnBubble(b, true);
   enterIdle(FOCUS);
   level = 0.0f;  // fill up on boot
@@ -508,11 +843,23 @@ void loop() {
   uint32_t now = millis();
   float t = now / 1000.0f;
 
-  pollInput();
-  updateBeeper();
+#if HAVE_WIFI
+  netLoop();
+#endif
 
-  if ((state == IDLE || state == PAUSED) && !btnDown && !beepOn && now - lastActivity > SLEEP_AFTER_MS) {
-    lowPowerSleep();
+  if (screenOff) {  // Wi-Fi standby: wake for an alert or the knob, otherwise idle
+    int tx, ty;
+    if (alertActive || digitalRead(PIN_ENC_SW) == LOW || encDetents != 0 || touchRead(tx, ty)) displayOn();
+    else { delay(20); return; }
+  }
+
+  pollInput();
+  pollTouch(now);
+  updateBeeper();
+  if (settingsOpen && (alertActive || (int32_t)(now - lastActivity) > (int32_t)SETTINGS_CLOSE_MS)) settingsOpen = false;
+
+  if (!alertActive && !settingsOpen && (state == IDLE || state == PAUSED) && !btnDown && !beepOn && (int32_t)(now - lastActivity) > (int32_t)SLEEP_AFTER_MS) {
+    standby();
     return;
   }
 
@@ -540,8 +887,10 @@ void loop() {
   curBot = lerpC(curBot, wantBot, 0.05f);
   slosh *= 0.97f;
 
-  drawLiquid(t);
-  drawText(t);
+  if (alertActive) drawAlert(now);
+  else if (settingsOpen) drawSettings();
+  else { drawLiquid(t); drawText(t); }
+  alertBeeps(now);
   fb.pushSprite(0, 0);
   updateBeeper();
   updateLeds(t);
