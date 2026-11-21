@@ -84,7 +84,7 @@ curl -X POST $KNOB/alert -H "X-Token: $TOKEN" -H "Content-Type: application/json
 # all the alerts for the day (replaces any earlier schedule)
 curl -X PUT $KNOB/schedule -H "X-Token: $TOKEN" -H "Content-Type: application/json" -d '{"alerts": [
   {"at": "09:30", "label": "Standup", "color": "blue"},
-  {"at": "15:10", "label": "Go get Sebastian", "color": "red"},
+  {"at": "15:10", "label": "School pickup", "color": "red"},
   {"in": 600,     "label": "Tea is ready", "color": "green", "beep": false}
 ]}'
 

@@ -20,6 +20,7 @@ Turn the knob to set minutes, press to start, the piezo tells you when the box i
 | `docs/wiring.png` | Wiring diagram |
 | `docs/assembly.png` | Six-step bench assembly card |
 | `firmware/pomodoro/` | The timer firmware: liquid-level Pomodoro display, countdown beeps, low power standby |
+| `skills/` | A Claude Code skill that lets an AI agent send alerts to the knob |
 | `firmware/beep_test/` | Minimal Arduino sketch that proves the beeper works |
 | `templates/cardboard_template.pdf` | 1:1 cut-and-fold cardboard version of the enclosure, three Letter pages, for a no-printer prototype |
 
